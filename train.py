@@ -46,14 +46,14 @@ def parse_arguments():
         const=True,
         nargs='?',
         default=20,
-        help="number of minimium inliers")
+        help="number of maximium inliers")
     parser.add_argument(
         "--lr",
         type=float,
         const=True,
         nargs='?',
         default=1e-3,
-        help="number of minimium inliers")
+        help="learning rate")
     parser.add_argument(
         "--batch_size", type=int, default=32, help="batch size")
     parser.add_argument(
