@@ -1,1 +1,4 @@
 .dir-locals.el
+__pycache__
+*.pt
+runs
