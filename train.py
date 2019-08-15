@@ -123,8 +123,8 @@ def main():
 
             with torch.no_grad():
                 acc = acc_func(sim, gt)
-            print('epoch={}, ibatch = {}, loss = {}, acc={}'.format(
-                epoch, ibatch, loss.item(), acc))
+            # print('epoch={}, ibatch = {}, loss = {}, acc={}'.format(
+            #     epoch, ibatch, loss.item(), acc))
             writer.add_scalar('train/loss', loss.item(), icnt)
             writer.add_scalar('train/acc', acc, icnt)
 
