@@ -2,10 +2,16 @@ import torch
 import numpy as np
 
 
-def to_tensor(feature_list):
-    return [
-        torch.unsqueeze(torch.from_numpy(t), 0).cuda() for t in feature_list
+def to_tensor(feature_list, use_cuda=True):
+    res = [
+        torch.unsqueeze(torch.from_numpy(t), 0) for t in feature_list
     ]
+    if use_cuda:
+        final_res = [f.cuda() for f in res]
+    else:
+        final_res = res
+
+    return final_res
 
 
 def ComputeAccuracyPas(decode, gTruth, NofInliers):

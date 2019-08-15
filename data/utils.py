@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def gen_random_graph_2d(nIns, nOus, scale, noise_level, theta):
+def gen_random_graph_2d(nIns, nOus, scale, noise_level, theta, OusScale=1.5):
     inliers = np.random.uniform(-1, 1, [nIns, 2])
 
     rot_mat = np.zeros([2, 2])
@@ -14,8 +14,8 @@ def gen_random_graph_2d(nIns, nOus, scale, noise_level, theta):
 
     ninliers = inliers.dot(trans_mat) + np.random.randn(nIns, 2) * noise_level
 
-    pt1 = [inliers, np.random.uniform(-1, 1, [nOus, 2])]
-    pt2 = [ninliers, np.random.uniform(-1, 1, [nOus, 2])]
+    pt1 = [inliers, np.random.uniform(-OusScale, OusScale, [nOus, 2])]
+    pt2 = [ninliers, np.random.uniform(-OusScale, OusScale, [nOus, 2])]
 
     return np.concatenate(
         pt1, axis=0).astype(np.float32), np.concatenate(

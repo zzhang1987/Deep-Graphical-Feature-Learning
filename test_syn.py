@@ -1,7 +1,8 @@
 import cmpnn
-from utils import str2bool, ComputeAccuracyPas, to_tensor
+from utils import str2bool, ComputeAccuracyPas, to_tensor, to_cuda
 from data import gen_random_graph_2d, pc_normalize, knn
 from scipy.optimize import linear_sum_assignment
+from tqdm import tqdm
 
 import torch
 import os
@@ -34,12 +35,15 @@ def parse_arguments():
         nargs='?',
         const=True,
         help="path to trained parameters")
+    parser.add_argument("--use_cuda", type=str2bool, default=True, help="Use cuda or not")
 
     args = parser.parse_args()
+    if not torch.cuda.is_available():
+        args.use_cuda = False
     return args
 
 
-def run_test_instance(model, nIns, nOus, scale, noise_level, ntheta):
+def run_test_instance(model, nIns, nOus, scale, noise_level, ntheta, use_cuda=True):
     PT1, PT2 = gen_random_graph_2d(nIns, nOus, scale, noise_level, ntheta)
     gTruth = np.random.permutation(nIns + nOus)
     PT1 = PT1[gTruth, :]
@@ -52,42 +56,47 @@ def run_test_instance(model, nIns, nOus, scale, noise_level, ntheta):
 
     with torch.no_grad():
         pt1, pt2, nn_idx1, nn_idx2, mask = to_tensor(
-            [pt1, pt2, nn_idx1, nn_idx2, mask])
+            [pt1, pt2, nn_idx1, nn_idx2, mask], use_cuda)
 
-    cuda_start = torch.cuda.Event(enable_timing=True)
-    cuda_end = torch.cuda.Event(enable_timing=True)
     with torch.no_grad():
-        cuda_start.record()
-        feature1 = model(pt1.permute(0, 2, 1), nn_idx1, mask)
-        feature2 = model(pt2.permute(0, 2, 1), nn_idx2, mask)
+        # print(pt1.shape, nn_idx1.shape, mask.shape)
+        feature1 = model(pt1.permute(0, 2, 1), nn_idx1.contiguous(), mask)
+        feature2 = model(pt2.permute(0, 2, 1), nn_idx2.contiguous(), mask)
         sim = torch.bmm(feature1.permute(0, 2, 1), feature2)
-        cuda_end.record()
-    torch.cuda.synchronize()
 
-    nninfer_time = cuda_start.elapsed_time(cuda_end)
     cost = -sim[0].cpu().numpy()
-    start = time.time()
     row_ind, col_ind = linear_sum_assignment(cost)
-    lapinfer_time = time.time() - start
     acc = ComputeAccuracyPas(col_ind, gTruth, nIns)
 
-    return acc, nninfer_time, lapinfer_time
-
-
+    return acc
+    
 def test_noise(model, nIns, nOus, scale, noise_start, noise_end, noise_step,
-               seed):
-    np.random(seed)
+               seed, use_cuda):
+    np.random.seed(seed)
 
     avg_accs = []
-    avg_time_nninfer = []
-    avg_time_lapinfer = []
+    for noise_level in tqdm(np.arange(noise_start, noise_end, noise_step)):
+        avg_acc = []
+        for idx in tqdm(range(0, 100)):
+            ntheta = np.random.uniform(0, np.pi)
+            avg_acc.append(run_test_instance(model, nIns, nOus, scale, noise_level, ntheta, use_cuda))
+        avg_accs.append(np.mean(avg_acc))
+    return avg_accs
 
-    for noise_level in np.arange(noise_start, noise_end, noise_step):
-        cavg_acc = []
-        cavg_time_nninfer = []
-        cavg_time_lapinfer = []
+def test_outlier(model, nIns, noise_level, scale, nOus_start, nOus_end, nOus_step, seed, use_cuda):
+    np.random.seed(seed)
 
+    avg_accs = []
 
+    for nOus in tqdm(range(nOus_start, nOus_end, nOus_step)):
+        avg_acc = []
+        for idx in tqdm(range(0, 100)):
+            ntheta = np.random.uniform(0, np.pi)
+            avg_acc.append(run_test_instance(model, nIns, nOus, scale, noise_level, ntheta, use_cuda))
+        avg_accs.append(np.mean(avg_acc))
+    return avg_accs
+
+    
 def test_theta(model, nIns, nOus, scale, noise_level, seed=123456):
     np.random.seed(seed)
 
@@ -154,26 +163,25 @@ def main():
 
     model = cmpnn.graph_matching.feature_network(
         with_residual=args.with_residual, with_global=args.with_global_pool)
-    model.cuda()
+    if args.use_cuda:
+        model.cuda()
 
-    params = torch.load(args.param_path)
+    if args.use_cuda:
+        params = torch.load(args.param_path)
+    else:
+        params = torch.load(args.param_path, map_location=torch.device('cpu'))
+
     model.load_state_dict(params['model_state_dict'])
     model.eval()
 
-    avg_accs, avg_time_nninfer, avg_time_lapinfer = test_theta(
-        model, 20, 2, 1.0, 0)
-
+    avg_accs = test_noise(model, 20, 0, 1.0, 0, 0.101, 0.01, 123456, args.use_cuda)
     print("avg accs: ", avg_accs)
-    print("avg nn infer time: ", avg_time_nninfer)
-    print("avg lap infer time: ", avg_time_lapinfer)
 
-    avg_accs, avg_time_nninfer, avg_time_lapinfer = test_theta(
-        model, 20, 0, 1.0, 0.025)
-
+    avg_accs = test_outlier(model, 20, 0, 1.0, 0, 11, 1, 123456, args.use_cuda)
     print("avg accs: ", avg_accs)
-    print("avg nn infer time: ", avg_time_nninfer)
-    print("avg lap infer time: ", avg_time_lapinfer)
 
-
+    avg_accs = test_outlier(model, 20, 0.025, 1.0, 0, 11, 1, 123456, args.use_cuda)
+    print("avg accs: ", avg_accs)
+    
 if __name__ == '__main__':
     main()
