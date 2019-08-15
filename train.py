@@ -1,6 +1,6 @@
 import cmpnn
 import data
-from utils import str2bool
+from utils import str2bool, to_cuda
 import argparse
 import torch
 from tqdm import tqdm
@@ -58,6 +58,7 @@ def parse_arguments():
         "--batch_size", type=int, default=32, help="batch size")
     parser.add_argument(
         "--epoches", type=int, default=9, help="number of epoches")
+    parser.add_argument("--use_cuda", type=str2bool, default=True, help="Use cuda or not")
     args = parser.parse_args()
     return args
 
@@ -67,6 +68,9 @@ def main():
     batch_size = args.batch_size
 
     print(args)
+
+    use_cuda = torch.cuda.is_available()
+    use_cuda = use_cuda and args.use_cuda
 
     writer = SummaryWriter()
 
@@ -83,7 +87,8 @@ def main():
 
     model = cmpnn.graph_matching.feature_network(
         with_residual=args.with_residual, with_global=args.with_global_pool)
-    model.cuda()
+    if use_cuda:
+        model.cuda()
 
     model_name = 'matching_res_{}_gp_{}'.format(args.with_residual,
                                                 args.with_global_pool)
@@ -111,9 +116,7 @@ def main():
     for epoch in tqdm(range(args.epoches)):
         for ibatch, data_batch in tqdm(enumerate(dataloader)):
             optimizer.zero_grad()
-            pt1, nn_idx1, pt2, nn_idx2, mask, gt = data_batch
-            pt1, nn_idx1, pt2, nn_idx2, mask, gt = pt1.cuda(), nn_idx1.cuda(
-            ), pt2.cuda(), nn_idx2.cuda(), mask.cuda(), gt.cuda()
+            pt1, nn_idx1, pt2, nn_idx2, mask, gt = to_cuda(data_batch, use_cuda) 
 
             feature1 = model(pt1.permute(0, 2, 1), nn_idx1, mask)
             feature2 = model(pt2.permute(0, 2, 1), nn_idx2, mask)
