@@ -17,7 +17,9 @@ def gen_random_graph_2d(nIns, nOus, scale, noise_level, theta):
     pt1 = [inliers, np.random.uniform(-1, 1, [nOus, 2])]
     pt2 = [ninliers, np.random.uniform(-1, 1, [nOus, 2])]
 
-    return np.concatenate(pt1, axis=0), np.concatenate(pt2, axis=0)
+    return np.concatenate(
+        pt1, axis=0).astype(np.float32), np.concatenate(
+            pt2, axis=0).astype(np.float32)
 
 
 def pc_normalize(pc):
@@ -40,3 +42,14 @@ def knn(pc, k):
     adj = adj_mat(pc)
     distance = np.argsort(adj, axis=1)
     return distance[:, :k]
+
+
+def rotate_pt(pt):
+    theta = np.random.uniform(0, 1) * 2 * np.pi
+    rot_mat = np.zeros([2, 2])
+    rot_mat[0][0] = np.cos(theta)
+    rot_mat[0][1] = np.sin(theta)
+    rot_mat[1][0] = -np.sin(theta)
+    rot_mat[1][1] = np.cos(theta)
+
+    return pt.dot(rot_mat).astype(np.float32)
