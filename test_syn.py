@@ -14,28 +14,28 @@ import time
 def parse_arguments():
 
     parser = argparse.ArgumentParser(description='Training opts')
-    parser.add_argument(
-        "--with_residual",
-        type=str2bool,
-        nargs='?',
-        const=True,
-        default=True,
-        help='Activate residual link')
-    parser.add_argument(
-        "--with_global_pool",
-        type=str2bool,
-        nargs='?',
-        const=True,
-        default=True,
-        help='Activate global pooling')
-    parser.add_argument(
-        "--param_path",
-        type=str,
-        required=True,
-        nargs='?',
-        const=True,
-        help="path to trained parameters")
-    parser.add_argument("--use_cuda", type=str2bool, default=True, help="Use cuda or not")
+    parser.add_argument("--with_residual",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        default=True,
+                        help='Activate residual link')
+    parser.add_argument("--with_global_pool",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        default=True,
+                        help='Activate global pooling')
+    parser.add_argument("--param_path",
+                        type=str,
+                        required=True,
+                        nargs='?',
+                        const=True,
+                        help="path to trained parameters")
+    parser.add_argument("--use_cuda",
+                        type=str2bool,
+                        default=True,
+                        help="Use cuda or not")
 
     args = parser.parse_args()
     if not torch.cuda.is_available():
@@ -43,8 +43,19 @@ def parse_arguments():
     return args
 
 
-def run_test_instance(model, nIns, nOus, scale, noise_level, ntheta, use_cuda=True):
-    PT1, PT2 = gen_random_graph_2d(nIns, nOus, scale, noise_level, ntheta)
+def run_test_instance(model,
+                      nIns,
+                      nOus,
+                      scale,
+                      noise_level,
+                      ntheta,
+                      use_cuda=True):
+    PT1, PT2 = gen_random_graph_2d(nIns,
+                                   nOus,
+                                   scale,
+                                   noise_level,
+                                   ntheta,
+                                   OusScale=1.0)
     gTruth = np.random.permutation(nIns + nOus)
     PT1 = PT1[gTruth, :]
 
@@ -69,7 +80,8 @@ def run_test_instance(model, nIns, nOus, scale, noise_level, ntheta, use_cuda=Tr
     acc = ComputeAccuracyPas(col_ind, gTruth, nIns)
 
     return acc
-    
+
+
 def test_noise(model, nIns, nOus, scale, noise_start, noise_end, noise_step,
                seed, use_cuda):
     np.random.seed(seed)
@@ -79,11 +91,15 @@ def test_noise(model, nIns, nOus, scale, noise_start, noise_end, noise_step,
         avg_acc = []
         for idx in tqdm(range(0, 100)):
             ntheta = np.random.uniform(0, np.pi)
-            avg_acc.append(run_test_instance(model, nIns, nOus, scale, noise_level, ntheta, use_cuda))
+            avg_acc.append(
+                run_test_instance(model, nIns, nOus, scale, noise_level,
+                                  ntheta, use_cuda))
         avg_accs.append(np.mean(avg_acc))
     return avg_accs
 
-def test_outlier(model, nIns, noise_level, scale, nOus_start, nOus_end, nOus_step, seed, use_cuda):
+
+def test_outlier(model, nIns, noise_level, scale, nOus_start, nOus_end,
+                 nOus_step, seed, use_cuda):
     np.random.seed(seed)
 
     avg_accs = []
@@ -92,11 +108,13 @@ def test_outlier(model, nIns, noise_level, scale, nOus_start, nOus_end, nOus_ste
         avg_acc = []
         for idx in tqdm(range(0, 100)):
             ntheta = np.random.uniform(0, np.pi)
-            avg_acc.append(run_test_instance(model, nIns, nOus, scale, noise_level, ntheta, use_cuda))
+            avg_acc.append(
+                run_test_instance(model, nIns, nOus, scale, noise_level,
+                                  ntheta, use_cuda))
         avg_accs.append(np.mean(avg_acc))
     return avg_accs
 
-    
+
 def test_theta(model, nIns, nOus, scale, noise_level, seed=123456):
     np.random.seed(seed)
 
@@ -174,14 +192,17 @@ def main():
     model.load_state_dict(params['model_state_dict'])
     model.eval()
 
-    avg_accs = test_noise(model, 20, 0, 1.0, 0, 0.101, 0.01, 123456, args.use_cuda)
+    avg_accs = test_noise(model, 20, 0, 1.0, 0, 0.101, 0.01, 123456,
+                          args.use_cuda)
     print("avg accs: ", avg_accs)
 
     avg_accs = test_outlier(model, 20, 0, 1.0, 0, 11, 1, 123456, args.use_cuda)
     print("avg accs: ", avg_accs)
 
-    avg_accs = test_outlier(model, 20, 0.025, 1.0, 0, 11, 1, 123456, args.use_cuda)
+    avg_accs = test_outlier(model, 20, 0.025, 1.0, 0, 11, 1, 123456,
+                            args.use_cuda)
     print("avg accs: ", avg_accs)
-    
+
+
 if __name__ == '__main__':
     main()
