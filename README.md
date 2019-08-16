@@ -26,6 +26,7 @@ conda create -n python3.6 python=3.6
 conda activate python3.6
 conda install tensorflow
 conda install conda install pytorch torchvision cudatoolkit=10.0 -c pytorch # adjust the cuda version according to your platform
+conda install scikit-image
 pip install tqdm
 ```
 
