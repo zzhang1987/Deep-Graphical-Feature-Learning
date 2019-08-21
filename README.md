@@ -50,3 +50,19 @@ To reproduce the experimental results on synthetic data, please run the followin
 python test_syn.py --param_path ./matching_res_True_gp_True_epoch_8.pt
 ```
 
+### PF-Pascal
+To reproduce the experimental results on PF-Pascal dataset, please first download the PF-Pascal dataset by running the script as follows,
+
+``` shell
+pushd datasets
+./downloads.sh
+popd
+```
+
+After that, the results can be reproduces by running the following script
+
+``` shell
+python test_pascal_pf.py --param_path ./matching_res_True_gp_True_epoch_7.pt --data_path ./datasets/PF-dataset-PASCAL/ --random_rotate False 
+python test_pascal_pf.py --param_path ./matching_res_True_gp_True_epoch_7.pt --data_path ./datasets/PF-dataset-PASCAL/ --random_rotate True
+```
+
