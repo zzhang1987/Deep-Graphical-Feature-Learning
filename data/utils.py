@@ -1,6 +1,8 @@
 import numpy as np
 
 
+
+
 def gen_random_graph_2d(nIns, nOus, scale, noise_level, theta, OusScale=1.5):
     inliers = np.random.uniform(-1, 1, [nIns, 2])
 

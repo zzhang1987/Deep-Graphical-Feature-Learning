@@ -12,54 +12,61 @@ import os
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Training opts')
-    parser.add_argument(
-        "--with_residual",
-        type=str2bool,
-        nargs='?',
-        const=True,
-        default=True,
-        help='Activate residual link')
-    parser.add_argument(
-        "--with_global_pool",
-        type=str2bool,
-        nargs='?',
-        const=True,
-        default=True,
-        help='Activate global pooling')
-    parser.add_argument(
-        "--min_inliers",
-        type=int,
-        const=True,
-        nargs='?',
-        default=30,
-        help="number of minimium inliers")
-    parser.add_argument(
-        "--max_inliers",
-        type=int,
-        const=True,
-        nargs='?',
-        default=60,
-        help="number of minimium inliers")
-    parser.add_argument(
-        "--max_outliers",
-        type=int,
-        const=True,
-        nargs='?',
-        default=20,
-        help="number of maximium inliers")
-    parser.add_argument(
-        "--lr",
-        type=float,
-        const=True,
-        nargs='?',
-        default=1e-3,
-        help="learning rate")
-    parser.add_argument(
-        "--batch_size", type=int, default=32, help="batch size")
-    parser.add_argument(
-        "--epoches", type=int, default=9, help="number of epoches")
-    parser.add_argument("--use_cuda", type=str2bool, default=True, help="Use cuda or not")
+    parser.add_argument("--with_residual",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        default=True,
+                        help='Activate residual link')
+    parser.add_argument("--with_global_pool",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        default=True,
+                        help='Activate global pooling')
+    parser.add_argument("--min_inliers",
+                        type=int,
+                        const=True,
+                        nargs='?',
+                        default=30,
+                        help="number of minimium inliers")
+    parser.add_argument("--max_inliers",
+                        type=int,
+                        const=True,
+                        nargs='?',
+                        default=60,
+                        help="number of minimium inliers")
+    parser.add_argument("--max_outliers",
+                        type=int,
+                        const=True,
+                        nargs='?',
+                        default=20,
+                        help="number of maximium inliers")
+    parser.add_argument("--lr",
+                        type=float,
+                        const=True,
+                        nargs='?',
+                        default=1e-3,
+                        help="learning rate")
+    parser.add_argument("--batch_size",
+                        type=int,
+                        default=32,
+                        help="batch size")
+    parser.add_argument("--epoches",
+                        type=int,
+                        default=9,
+                        help="number of epoches")
+    parser.add_argument("--use_cuda",
+                        type=str2bool,
+                        default=True,
+                        help="Use cuda or not")
+    parser.add_argument("--load_snap",
+                        type=str,
+                        help="load snapshots of parameters")
     args = parser.parse_args()
+    if not torch.cuda.is_available():
+        print(">>>   CUDA is not available on  your platform <<<")
+        args.use_cuda = False
     return args
 
 
@@ -69,15 +76,14 @@ def main():
 
     print(args)
 
-    use_cuda = torch.cuda.is_available()
-    use_cuda = use_cuda and args.use_cuda
-
     writer = SummaryWriter()
 
     dataset = data.RandomGraphDataset(args.min_inliers, args.max_inliers, 0,
                                       args.max_outliers)
-    dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=1)
+    dataloader = DataLoader(dataset,
+                            batch_size=batch_size,
+                            shuffle=True,
+                            num_workers=1)
 
     def ce_loss_logits(target, res):
         return -torch.sum(target * res) / torch.sum(target)
@@ -87,7 +93,7 @@ def main():
 
     model = cmpnn.graph_matching.feature_network(
         with_residual=args.with_residual, with_global=args.with_global_pool)
-    if use_cuda:
+    if args.use_cuda:
         model.cuda()
 
     model_name = 'matching_res_{}_gp_{}'.format(args.with_residual,
@@ -106,17 +112,23 @@ def main():
         all_cnt = (target >= 0).long().sum()
         return correct.cpu().item() * 1.0 / all_cnt.cpu().item()
 
-    if os.path.exists('{}_snap.pt'.format(model_name)):
-        checkpoint = torch.load('{}_snap.pt'.format(model_name))
-        model.load_state_dict(checkpoint['model_state_dict'])
-        # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        icnt = checkpoint['icnt']
-        print("Model loaded")
+    if args.load_snap is not None:
+        if os.path.exists(args.load_snap):
+            if args.use_cuda:
+                checkpoint = torch.load(args.load_snap)
+            else:
+                checkpoint = torch.load(args.load_snap,
+                                        map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint['model_state_dict'])
+            # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            icnt = checkpoint['icnt']
+            print("Model loaded from file {}".format(args.load_snap))
 
     for epoch in tqdm(range(args.epoches)):
         for ibatch, data_batch in tqdm(enumerate(dataloader)):
             optimizer.zero_grad()
-            pt1, nn_idx1, pt2, nn_idx2, mask, gt = to_cuda(data_batch, use_cuda) 
+            pt1, nn_idx1, pt2, nn_idx2, mask, gt = to_cuda(
+                data_batch, args.use_cuda)
 
             feature1 = model(pt1.permute(0, 2, 1), nn_idx1, mask)
             feature2 = model(pt2.permute(0, 2, 1), nn_idx2, mask)
@@ -135,17 +147,19 @@ def main():
             loss.backward()
             optimizer.step()
             if icnt % 100 == 0:
-                torch.save({
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'icnt': icnt
-                }, '{}_snap.pt'.format(model_name))
+                torch.save(
+                    {
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'icnt': icnt
+                    }, '{}_snap.pt'.format(model_name))
 
-        torch.save({
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'icnt': icnt,
-        }, '{}_epoch_{}.pt'.format(model_name, epoch))
+        torch.save(
+            {
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'icnt': icnt,
+            }, '{}_epoch_{}.pt'.format(model_name, epoch))
 
     writer.close()
 
