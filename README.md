@@ -50,6 +50,15 @@ To reproduce the experimental results on synthetic data, please run the followin
 python test_syn.py --param_path ./matching_res_True_gp_True_epoch_8.pt
 ```
 
+### CMU House 
+The original link to download the CMU house dataset is not valid anymore, thus the data is included in the repo.
+To reproduce the experimental results on the dataset, please run the script as follows
+
+``` shell
+python test_cmu_house.py --param_path ./matching_res_True_gp_True_epoch_8.pt --data_path ./datasets/cmum/house
+```
+
+
 ### PF-Pascal
 To reproduce the experimental results on PF-Pascal dataset, please first download the PF-Pascal dataset by running the script as follows,
 
